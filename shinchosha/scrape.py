@@ -39,7 +39,7 @@ def resultsCsv():
     try:
         books = pd.read_csv(BOOKS)
     except:
-        books = pd.DataFrame(columns=['title', 'authors', 'price', 'published_date', 'head', 'detail', 'icons', 'ebook'])
+        books = pd.DataFrame(columns=['title', 'authors', 'price', 'published_date', 'head', 'detail', 'icons', 'ebook', 'csv', 'num'])
 
     return books
 
@@ -51,7 +51,7 @@ def getUrls(file_name):
             urls.append(row[0])
     return urls
 
-def searchBook(df, url):
+def searchBook(df, url, i, j):
     res = requests.get(url)
     bs = BeautifulSoup(res.content, 'html.parser')
     bs = bs.find('div', class_='mod-detail')
@@ -72,9 +72,20 @@ def searchBook(df, url):
     except:
         head_icons = False
 
-    title = body.find('h2', class_='mod-detail__title').text
-    authors = body.find('p', class_='mod-detail__author').text
-    date = body.find('p', class_='mod-detail__date').text
+    try:
+        title = body.find('h2', class_='mod-detail__title').text
+    except:
+        title = False
+
+    try:
+        authors = body.find('p', class_='mod-detail__author').text
+    except:
+        authors = False
+
+    try:
+        date = body.find('p', class_='mod-detail__date').text
+    except:
+        date = False
 
     try:    
         price = body.find('p', class_='mod-detail__price').text
@@ -94,7 +105,7 @@ def searchBook(df, url):
     else:
         ebook = False
 
-    tmp_se = pd.Series([title, authors, price, date, headding, detail, head_icons, ebook], index=df.columns)
+    tmp_se = pd.Series([title, authors, price, date, headding, detail, head_icons, ebook, i, j], index=df.columns)
     df = df.append(tmp_se, ignore_index=True)
     return df
 
@@ -104,15 +115,21 @@ def main():
     url_files = arrange(glob.glob(URLDIR+'/*.csv'))
     num_files = len(url_files)
 
+    print(books.head())
+    have_csv = books['csv'].value_counts().index.tolist()
+    print(have_csv) 
     # books = searchBook(books, 'https://www.shinchosha.co.jp/ebook/E042111/')
 
     for i, url_file in enumerate(url_files):
+        if i in have_csv:
+            print('Already have', url_file)
+            continue
         urls = getUrls(url_file)
         for j, url in enumerate(urls):
-            books = searchBook(books, url)
+            books = searchBook(books, url, i, j)
             print('Checked {}-{}: {}'.format(i, j, url))
             time.sleep(1)
-        books.to_csv(BOOKS)
+        books.to_csv(BOOKS, index=False)
 
         print('-------------------------------------------')
         print('Searched {}/{} csv files: {} % completed!'.format(i+1, num_files, round((i+1)/num_files*100, 1)))
